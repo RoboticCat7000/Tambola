@@ -1,11 +1,46 @@
 import socket
 from threading import Thread
+import time
+import random
 
 SERVER = None
 IP_ADDRESS = "127.0.0.1"
 PORT = 6000
 
 CLIENTS = {}
+
+FLASH_NUMBER_LIST=[i for i in range(1,91)]
+players_joined = False
+
+
+def handle_client():
+    global CLIENTS
+    global FLASH_NUMBER_LIST
+    global players_joined
+    
+    while(True):
+        try:
+            if len(list(CLIENTS.keys())) >= 2:
+                if not players_joined:
+                    players_joined = True
+                    time.sleep(1)
+            if len(FLASH_NUMBER_LIST) > 0:
+                random_number = random.choice(FLASH_NUMBER_LIST)
+                current_name = None
+                try:
+                    for cname in CLIENTS:
+                        current_name = cname
+                        csocket = CLIENTS[cname]["player_socket"]
+                        csocket.send(str(random_number).encode())
+                    FLASH_NUMBER_LIST.remove(int(random_number))    
+
+                except:
+                    del CLIENTS[current_name]
+                time.sleep(3)  
+        except:
+            pass
+
+
 
 def accept_connections():
     global SERVER
@@ -39,6 +74,11 @@ def setup():
     SERVER.bind((IP_ADDRESS, PORT))
     SERVER.listen(10)
     print("\t\t\tServer is waiting for the incoming connections")
+    thread = Thread(target=handle_client,args=())
+    thread.start()
+    
     accept_connections()
+
+    
 
 setup()
