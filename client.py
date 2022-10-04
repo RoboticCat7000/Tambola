@@ -1,4 +1,5 @@
 
+
 import socket
 from threading import Thread
 from tkinter import * #type: ignore
@@ -23,6 +24,31 @@ ticket_grid = []
 current_number_list = []
 flash_number_list = []
 flash_number_label = None
+game_over = False
+marked_number_list = []
+displayed_number_list = []
+dice = None
+winning_message = None
+reset_button = None
+
+
+def showWrongMarking():
+    global ticket_grid
+    global flash_number_list
+
+    # changing background color of number which is not flash yet on screen
+    for row in ticket_grid:
+        for numberBox in row:
+            if(numberBox['text']):
+                if(int(numberBox['text']) not in flash_number_list):
+                    if(platform.system() == 'Darwin'):
+                        # For Mac Users
+                        numberBox.configure(state='disabled', disabledbackground='#f48fb1',
+                            disabledforeground="white")
+                    else:
+                        # For Windows Users
+                        numberBox.configure(state='disabled', background='#f48fb1',
+                            foreground="white")
 
 def game_window():
     global gameWindow
@@ -52,6 +78,43 @@ def game_window():
     gameWindow.resizable(True,True)
     gameWindow.mainloop()
 
+def markNumber(button):
+    global marked_number_list
+    global flash_number_list
+    global playerName
+    global SERVER
+    global current_number_list
+    global game_over
+    global flash_number_label
+    global canvas2
+
+    buttonText = int(button['text'])
+    marked_number_list.append(buttonText)
+
+    # Make button disabled and changing color to green
+    if(platform.system() == 'Darwin'):
+        # For Mac Users
+        button.configure(state='disabled',disabledbackground='#c5e1a5', disabledforeground="black", highlightbackground="#c5e1a5")
+    else:
+        # For Windows Users
+        button.configure(state='disabled',background='#c5e1a5', foreground="black")
+
+    winner =  all(item in flash_number_list for item in marked_number_list)
+
+    if(winner and sorted(current_number_list) == sorted(marked_number_list)):
+        message = playerName + ' wins the game.'  # type: ignore
+        SERVER.send(message.encode())  # type: ignore
+        return
+
+    # When user lose the game
+    if(len(current_number_list) == len(marked_number_list)):
+        winner =  all(item in flash_number_list for item in marked_number_list)
+        if(not winner):
+            gameOver = True
+            message = 'You Lose the Game'
+            canvas2.itemconfigure(flash_number_label, text = message, font = ('Chalkboard SE', 40))  # type: ignore
+            showWrongMarking()
+
 def createTicket():
     global ticket_grid
     global gameWindow
@@ -66,10 +129,13 @@ def createTicket():
                 box_button = Button(gameWindow,font=("Chalkboard SE",18),bd=3,
                 padx=-22,pady=23,bg="#FFF176",
                 highlightbackground="#FFF176",activebackground="#C5E1A5")
+                box_button.configure(command = lambda box_button=box_button : markNumber(box_button))
+
                 box_button.place(x=xPos,y=yPos)
             else:
                 box_button = tk.Button(gameWindow,font=("Chalkboard SE",30),width=3,
                 height=2,borderwidth=5,bg="#FFF176")
+                box_button.configure(command = lambda box_button=box_button : markNumber(box_button))
                 box_button.place(x=xPos,y=yPos)
             row_list.append(box_button)
             xPos +=64
@@ -91,6 +157,36 @@ def placeNumbers():
             if(random_col not in random_col_list):
                 random_col_list.append(random_col)
                 counter+=1
+        numberContainer = {
+        "0": [1, 2, 3, 4, 5, 6, 7, 8, 9],
+        "1": [10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
+        "2": [20, 21, 22, 23, 24, 25, 26, 27, 28, 29],
+        "3": [30, 31, 32, 33, 34, 35, 36, 37, 38, 39],
+        "4": [40, 41, 42, 43, 44, 45, 46, 47, 48, 49],
+        "5": [50 , 51, 52, 53, 54, 55, 56, 57, 58, 59],
+        "6": [60, 61, 62, 63, 64, 65, 66, 67, 68, 69],
+        "7": [70, 71, 72, 73, 74, 75, 76, 77, 78, 79],
+        "8": [80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90],
+        }
+
+
+        counter = 0
+        while (counter < len(random_col_list)):
+            colNum = random_col_list[counter]
+            numbersListByIndex = numberContainer[str(colNum)]
+            randomNumber = random.choice(numbersListByIndex)
+
+            if(randomNumber not in current_number_list):
+                numberBox = ticket_grid[row][colNum]
+                numberBox.configure(text=randomNumber, fg="black")
+                current_number_list.append(randomNumber)
+
+                counter+=1
+
+    for row in ticket_grid:
+        for numberBox in row:
+            if not numberBox['text']:
+                numberBox.configure(state='disabled', background="#ff8a65")
 
 def saveName():
     global SERVER
@@ -110,7 +206,24 @@ def saveName():
 
 
 def recieveMsg():
-    pass
+    global SERVER
+    global displayed_number_list 
+    global flash_number_label
+    global canvas2
+    global game_over
+    
+    numbers = [str(i)for i in range(1,91)]
+    while True:
+        chunk = SERVER.recv(2048).decode() # type: ignore
+        if chunk in numbers and flash_number_label and not game_over:
+            flash_number_list.append(int(chunk))
+            canvas2.itemconfigure(flash_number_label,text=chunk,font=("Chalkboard SE",60))  # type: ignore
+        elif 'wins the game.' in chunk:
+            game_over = True
+            canvas2.itemconfigure(flash_number_label,text=chunk,font=("Chalkboard SE",40))  # type: ignore
+
+
+
 
 def askPlayerName():
     global playerName
