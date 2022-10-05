@@ -12,6 +12,21 @@ CLIENTS = {}
 FLASH_NUMBER_LIST=[i for i in range(1,91)]
 players_joined = False
 
+def recvMsg(player_socket):
+    global CLIENTS
+    global gameOver
+
+    while True:
+        try:
+            message = player_socket.recv(2048).decode()
+            if(message):
+                for cName in CLIENTS:
+                    cSocket = CLIENTS[cName]["player_socket"]
+                    if('wins the game.' in message):
+                        gameOver = True
+                    cSocket.send(message.encode())
+        except:
+            pass
 
 def handle_client():
     global CLIENTS
@@ -78,6 +93,8 @@ def setup():
     thread.start()
     
     accept_connections()
+
+
 
     
 
